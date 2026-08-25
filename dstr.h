@@ -95,6 +95,26 @@ int dstr_cat(dstr **dest, const dstr *src);
  */
 int dstr_cat_cstr(dstr **dest, const char *cstr);
 
+/* compare at most n bytes of a and b lexicographically.
+ * Returns <0, 0, or >0 if a is less than, equal to, or greater
+ * than b respectively. If the compared bytes are equal and n
+ * exceeds the length of either dstr, the lengths are used to
+ * break the tie. If a or b is NULL, returns -1 and sets errno
+ * to EINVAL.
+ */
+int dstr_cmp_n(const dstr *a, const dstr *b, size_t n);
+
+/* Returns true if `a` and `b` have the same length and contents.
+ * Returns false if either is NULL or if they differ.
+ */
+bool dstr_eq(const dstr *a, const dstr *b);
+
+/* Returns true if `a` and `b` have the same length and contents
+ * ignoring ASCII case. Returns false if either is null or if they
+ * differ.
+ */
+bool dstr_eq_ignorecase(const dstr *a, const dstr *b);
+
 #endif // DSTR_H
 
 #ifdef DSTR_IMPLEMENTATION
@@ -222,6 +242,64 @@ int dstr_cat_cstr(dstr **dest, const char *src)
 		return -1;
 	}
 	return dstr_cat_n(dest, src, strlen(src));
+}
+
+int dstr_cmp_n(const dstr *a, const dstr *b, size_t n)
+{
+	if (!a || !b) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	size_t common = a->len < b->len ? a->len : b->len;
+	if (common > n)
+		common = n;
+
+	int cmp = memcmp(a->data, b->data, common);
+
+	if (cmp != 0)
+		return cmp;
+
+	if (common == n)
+		return 0;
+
+	return (a->len > b->len) - (a->len < b->len);
+}
+
+bool dstr_eq(const dstr *a, const dstr *b)
+{
+	if (!a || !b)
+		return false;
+
+	if (a->len != b->len)
+		return false;
+
+	return memcmp(a->data, b->data, a->len) == 0;
+}
+
+bool dstr_eq_ignorecase(const dstr *a, const dstr *b)
+{
+	if (!a || !b)
+		return false;
+
+	if (a->len != b->len)
+		return false;
+
+	for (size_t i = 0; i < a->len; i++) {
+		char ca = a->data[i];
+		char cb = b->data[i];
+
+		if (ca >= 'A' && ca <= 'Z')
+			ca += 'a' - 'A';
+
+		if (cb >= 'A' && cb <= 'Z')
+			cb += 'a' - 'A';
+
+		if (ca != cb)
+			return false;
+	}
+
+	return true;
 }
 
 #endif // DSTR_IMPLEMENTATION

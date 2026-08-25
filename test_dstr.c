@@ -366,6 +366,161 @@ void test_dstr_cat_cstr_src_with_null_byte(void)
 	dstr_free(hello);
 }
 
+void test_dstr_cmp_n_identical(void)
+{
+	dstr *a = dstr_new("abcd");
+	dstr *b = dstr_new("abcd");
+
+	ASSERT_EQUAL(int, 0, dstr_cmp_n(a, b, 4));
+
+	dstr_free(a);
+	dstr_free(b);
+}
+
+void test_dstr_cmp_n_mismatch(void)
+{
+	dstr *a = dstr_new("abcd");
+	dstr *b = dstr_new("abce");
+
+	ASSERT_TRUE(dstr_cmp_n(a, b, 4) < 0);
+
+	dstr_free(a);
+	dstr_free(b);
+}
+
+void test_dstr_cmp_n_prefix_within_n(void)
+{
+	dstr *a = dstr_new("abcd");
+	dstr *b = dstr_new("abcde");
+
+	ASSERT_EQUAL(int, 0, dstr_cmp_n(a, b, 4));
+
+	dstr_free(a);
+	dstr_free(b);
+}
+
+void test_dstr_cmp_n_shorter(void)
+{
+	dstr *a = dstr_new("abcd");
+	dstr *b = dstr_new("abcde");
+
+	ASSERT_TRUE(dstr_cmp_n(a, b, 5) < 0);
+
+	dstr_free(a);
+	dstr_free(b);
+}
+
+void test_dstr_cmp_n_longer(void)
+{
+	dstr *a = dstr_new("abcd");
+	dstr *b = dstr_new("abc");
+
+	ASSERT_TRUE(dstr_cmp_n(a, b, 4) > 0);
+
+	dstr_free(a);
+	dstr_free(b);
+}
+
+void test_dstr_cmp_n_zero_bytes(void)
+{
+	dstr *a = dstr_new("abcd");
+	dstr *b = dstr_new("wxyz");
+
+	ASSERT_EQUAL(int, 0, dstr_cmp_n(a, b, 0));
+
+	dstr_free(a);
+	dstr_free(b);
+}
+
+void test_dstr_cmp_n_null_arg(void)
+{
+	dstr *a = NULL;
+
+	errno = 0;
+	dstr *b = dstr_new("wxyz");
+
+	ASSERT_EQUAL(int, -1, dstr_cmp_n(a, b, 0));
+	ASSERT_EQUAL(int, EINVAL, errno);
+
+	dstr_free(b);
+}
+
+void test_dstr_eq_equal_data(void)
+{
+	dstr *a = dstr_new_n("hello\0", 6);
+	dstr *b = dstr_new_n("hello\0", 6);
+
+	bool eq = dstr_eq(a, b);
+
+	ASSERT_TRUE(eq);
+
+	dstr_free(a);
+	dstr_free(b);
+}
+
+void test_dstr_eq_unequal_data(void)
+{
+	dstr *a = dstr_new_n("hello\0", 6);
+	dstr *b = dstr_new_n("hel", 3);
+
+	bool eq = dstr_eq(a, b);
+
+	ASSERT_FALSE(eq);
+
+	dstr_free(a);
+	dstr_free(b);
+}
+
+void test_dstr_eq_null_arg(void)
+{
+	dstr *a = NULL;
+	dstr *b = dstr_new_n("hello\0", 6);
+
+	bool eq = dstr_eq(a, b);
+
+	ASSERT_FALSE(eq);
+
+	dstr_free(b);
+}
+
+void test_dstr_eq_ignorecase_equal_data_different_case(void)
+{
+	dstr *a = dstr_new("hello,World!");
+	dstr *b = dstr_new("hello,world!");
+
+	bool eq = dstr_eq_ignorecase(a, b);
+
+	ASSERT_TRUE(eq);
+
+	dstr_free(a);
+	dstr_free(b);
+}
+
+void test_dstr_eq_ignorecase_unequal_data(void)
+{
+	dstr *a = dstr_new("HeLLo,WorlD!");
+	dstr *b = dstr_new("hello,mortals!");
+
+	bool eq = dstr_eq_ignorecase(a, b);
+
+	ASSERT_FALSE(eq);
+
+	dstr_free(a);
+	dstr_free(b);
+}
+
+void test_dstr_eq_ignorecase_null_arg(void)
+{
+	dstr *a = NULL;
+	dstr *b = dstr_new_n("hello\0", 6);
+
+	bool eq = dstr_eq_ignorecase(a, b);
+
+	ASSERT_FALSE(eq);
+
+	dstr_free(b);
+}
+
 #define RUN_TEST(test)                                                                             \
 	do {                                                                                           \
 		curr_test = #test;                                                                         \
@@ -394,6 +549,19 @@ int main(void)
 	RUN_TEST(test_dstr_cat_cstr_normal);
 	RUN_TEST(test_dstr_cat_cstr_null_src);
 	RUN_TEST(test_dstr_cat_cstr_src_with_null_byte);
+	RUN_TEST(test_dstr_cmp_n_identical);
+	RUN_TEST(test_dstr_cmp_n_mismatch);
+	RUN_TEST(test_dstr_cmp_n_prefix_within_n);
+	RUN_TEST(test_dstr_cmp_n_shorter);
+	RUN_TEST(test_dstr_cmp_n_longer);
+	RUN_TEST(test_dstr_cmp_n_zero_bytes);
+	RUN_TEST(test_dstr_cmp_n_null_arg);
+	RUN_TEST(test_dstr_eq_equal_data);
+	RUN_TEST(test_dstr_eq_unequal_data);
+	RUN_TEST(test_dstr_eq_null_arg);
+	RUN_TEST(test_dstr_eq_ignorecase_equal_data_different_case);
+	RUN_TEST(test_dstr_eq_ignorecase_unequal_data);
+	RUN_TEST(test_dstr_eq_ignorecase_null_arg);
 	printf("\n" GREEN "All tests passed." RESET "\n");
 	return 0;
 }
