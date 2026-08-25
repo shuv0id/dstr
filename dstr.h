@@ -64,6 +64,37 @@ dstr *dstr_dup(const dstr *s);
  */
 void dstr_free(dstr *str);
 
+/* Append 'src' of 'n' bytes to 'dest' by mutating `dest`. This
+ * function is binary-safe and automatically grows `dest` if
+ * needed. src and *dest can be equal.
+ * Returns 0 on success and -1 on failure.
+ * If n is 0 then operation is no-op and returns 0.
+ * Returns -1 and sets errno to EINVAL if following invalid
+ * arguments are passed:
+ * - NULL dest or
+ * - NULL *dest or
+ * - NULL src and n > 0
+ * This operation can fail if requested size of bytes could not be
+ * appended to dest in which case -1 is returned and errno is set
+ * to EOVERFLOW.
+ */
+int dstr_cat_n(dstr **dest, const void *src, size_t n);
+
+/* Append the contents of `src` to `dest`. Equivalent to
+ * dstr_cat_n(dest, src->data, src->len) and inherits same invalid
+ * argument and overflow handling.
+ * Returns -1 if src is NULL and errno is set to
+ * EINVAL.
+ */
+int dstr_cat(dstr **dest, const dstr *src);
+
+/* Append NUL-terminated c strings to `dest` dstr. Equivalent to
+ * dstr_cat_n(dest, src, strlen(src)) and inherits same invalid
+ * argument and overflow handling. Returns -1 if src is NULL and
+ * errno is set to EINVAL.
+ */
+int dstr_cat_cstr(dstr **dest, const char *cstr);
+
 #endif // DSTR_H
 
 #ifdef DSTR_IMPLEMENTATION
@@ -125,6 +156,72 @@ void dstr_free(dstr *str)
 	if (!str)
 		return;
 	DSTR_FREE(str);
+}
+
+int dstr_cat_n(dstr **dest, const void *src, size_t n)
+{
+	if (!dest || !(*dest) || (!src && n > 0)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	if (n == 0)
+		return 0;
+
+	if (n > SIZE_MAX - (*dest)->len - 1) {
+		errno = EOVERFLOW;
+		return -1;
+	}
+
+	size_t new_sz = (*dest)->len + n + 1;
+
+	if ((*dest)->cap < new_sz - sizeof(dstr)) {
+		size_t curr_sz = sizeof(dstr) + (*dest)->cap;
+		if (curr_sz <= (SIZE_MAX / 2) && curr_sz * 2 > new_sz)
+			new_sz = curr_sz * 2;
+
+		dstr *old = *dest;
+		dstr *new_str = DSTR_ALLOC(*dest, new_sz);
+
+		if (!new_str) {
+			return -1;
+		}
+
+		// Reallocation can make the previous pointer invalid
+		*dest = new_str;
+		if (old == src) {
+			// Incase provided dest and src were equal we also
+			// need to change src to the pointer to new memory
+			// location
+			src = new_str;
+		}
+
+		(*dest)->cap = new_sz - sizeof(dstr);
+	}
+
+	memmove((*dest)->data + (*dest)->len, src, n);
+	(*dest)->len += n;
+	(*dest)->data[(*dest)->len] = '\0';
+
+	return 0;
+}
+
+int dstr_cat(dstr **dest, const dstr *src)
+{
+	if (!src) {
+		errno = EINVAL;
+		return -1;
+	}
+	return dstr_cat_n(dest, src->data, src->len);
+}
+
+int dstr_cat_cstr(dstr **dest, const char *src)
+{
+	if (!src) {
+		errno = EINVAL;
+		return -1;
+	}
+	return dstr_cat_n(dest, src, strlen(src));
 }
 
 #endif // DSTR_IMPLEMENTATION

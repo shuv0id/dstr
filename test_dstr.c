@@ -213,6 +213,159 @@ void test_dstr_dup_null(void)
 	dstr_free(dup);
 }
 
+void test_dstr_cat_n_empty_dstr(void)
+{
+	char *greet = "helloworld";
+	dstr *dest = dstr_empty();
+
+	int done = dstr_cat_n(&dest, greet, 10);
+
+	ASSERT_EQUAL(int, 0, done);
+	ASSERT_EQUAL(size_t, 10, dest->len);
+	ASSERT_TRUE(dest->cap > 10);
+	ASSERT_TRUE(memcmp(dest->data, greet, dest->len) == 0);
+
+	dstr_free(dest);
+}
+
+void test_dstr_cat_n_null_dest_arg(void)
+{
+	errno = 0;
+	int done = dstr_cat_n(NULL, NULL, 1);
+
+	ASSERT_EQUAL(int, -1, done);
+	ASSERT_EQUAL(int, EINVAL, errno);
+}
+
+void test_dstr_cat_n_null_dest(void)
+{
+	errno = 0;
+	dstr *dest = NULL;
+	int done = dstr_cat_n(&dest, NULL, 1);
+
+	ASSERT_EQUAL(int, -1, done);
+	ASSERT_EQUAL(int, EINVAL, errno);
+}
+
+void test_dstr_cat_n_null_src(void)
+{
+	dstr *hello = dstr_new("hello");
+	const size_t prev_len = hello->len;
+	const size_t prev_cap = hello->cap;
+
+	errno = 0;
+	int done = dstr_cat_n(&hello, NULL, 1);
+
+	ASSERT_EQUAL(int, -1, done);
+	ASSERT_EQUAL(int, EINVAL, errno);
+	ASSERT_EQUAL(size_t, prev_len, hello->len);
+	ASSERT_EQUAL(size_t, prev_cap, hello->cap);
+	ASSERT_TRUE(memcmp(hello->data, "hello", hello->len) == 0);
+
+	dstr_free(hello);
+}
+
+void test_dstr_cat_n_src_with_null_byte(void)
+{
+	char *greet = "\0world";
+	dstr *dest = dstr_new_n("hello", 5);
+
+	int ok = dstr_cat_n(&dest, greet, 6);
+
+	ASSERT_EQUAL(int, 0, ok);
+	ASSERT_EQUAL(size_t, 11, dest->len);
+	ASSERT_TRUE(dest->cap > 11);
+	ASSERT_TRUE(memcmp(dest->data, "hello\0world", dest->len) == 0);
+
+	dstr_free(dest);
+}
+
+void test_dstr_cat_normal(void)
+{
+	dstr *hello = dstr_new_n("hello", 5);
+	dstr *world = dstr_new_n("\0world", 6);
+
+	int done = dstr_cat(&hello, world);
+	ASSERT_EQUAL(int, 0, done);
+	ASSERT_EQUAL(size_t, 11, hello->len);
+	ASSERT_TRUE(hello->cap > 11);
+	ASSERT_TRUE(memcmp(hello->data, "hello\0world", hello->len) == 0);
+
+	dstr_free(hello);
+	dstr_free(world);
+}
+
+void test_dstr_cat_null_src(void)
+{
+	dstr *hello = dstr_new("hello");
+	const size_t prev_len = hello->len;
+	const size_t prev_cap = hello->cap;
+
+	errno = 0;
+	int done = dstr_cat(&hello, NULL);
+
+	ASSERT_EQUAL(int, -1, done);
+	ASSERT_EQUAL(int, EINVAL, errno);
+	ASSERT_EQUAL(size_t, prev_len, hello->len);
+	ASSERT_EQUAL(size_t, prev_cap, hello->cap);
+	ASSERT_TRUE(memcmp(hello->data, "hello", hello->len) == 0);
+
+	dstr_free(hello);
+}
+
+void test_dstr_cat_cstr_normal(void)
+{
+	char *world = "world";
+
+	dstr *hello = dstr_new("hello");
+	const size_t prev_len = hello->len;
+
+	int done = dstr_cat_cstr(&hello, world);
+
+	ASSERT_EQUAL(int, 0, done);
+	ASSERT_EQUAL(size_t, prev_len + strlen(world), hello->len);
+	ASSERT_TRUE(hello->cap > 10);
+	ASSERT_TRUE(memcmp(hello->data, "helloworld", hello->len) == 0);
+
+	dstr_free(hello);
+}
+
+void test_dstr_cat_cstr_null_src(void)
+{
+	dstr *hello = dstr_new("hello");
+	const size_t prev_len = hello->len;
+	const size_t prev_cap = hello->cap;
+
+	errno = 0;
+	int done = dstr_cat_cstr(&hello, NULL);
+
+	ASSERT_EQUAL(int, -1, done);
+	ASSERT_EQUAL(int, EINVAL, errno);
+	ASSERT_EQUAL(size_t, prev_len, hello->len);
+	ASSERT_EQUAL(size_t, prev_cap, hello->cap);
+	ASSERT_TRUE(memcmp(hello->data, "hello", hello->len) == 0);
+
+	dstr_free(hello);
+}
+
+void test_dstr_cat_cstr_src_with_null_byte(void)
+{
+	char *world = "world\0anduniverse";
+
+	dstr *hello = dstr_new("hello");
+	const size_t prev_len = hello->len;
+
+	int done = dstr_cat_cstr(&hello, world);
+
+	ASSERT_EQUAL(int, 0, done);
+	ASSERT_EQUAL(size_t, prev_len + strlen(world), hello->len);
+	ASSERT_TRUE(hello->cap > 10);
+	ASSERT_EQUAL(char, '\0', hello->data[hello->len]);
+	ASSERT_TRUE(memcmp(hello->data, "helloworld", hello->len) == 0);
+
+	dstr_free(hello);
+}
+
 #define RUN_TEST(test)                                                                             \
 	do {                                                                                           \
 		curr_test = #test;                                                                         \
@@ -231,6 +384,16 @@ int main(void)
 	RUN_TEST(test_dstr_new_stops_at_null);
 	RUN_TEST(test_dstr_dup_normal);
 	RUN_TEST(test_dstr_dup_null);
+	RUN_TEST(test_dstr_cat_n_null_dest_arg);
+	RUN_TEST(test_dstr_cat_n_empty_dstr);
+	RUN_TEST(test_dstr_cat_n_null_dest);
+	RUN_TEST(test_dstr_cat_n_null_src);
+	RUN_TEST(test_dstr_cat_n_src_with_null_byte);
+	RUN_TEST(test_dstr_cat_normal);
+	RUN_TEST(test_dstr_cat_null_src);
+	RUN_TEST(test_dstr_cat_cstr_normal);
+	RUN_TEST(test_dstr_cat_cstr_null_src);
+	RUN_TEST(test_dstr_cat_cstr_src_with_null_byte);
 	printf("\n" GREEN "All tests passed." RESET "\n");
 	return 0;
 }
