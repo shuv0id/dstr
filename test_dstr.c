@@ -186,7 +186,7 @@ void test_dstr_new_stops_at_null(void)
 	dstr_free(str);
 }
 
-void test_dstr_dup_normal(void)
+void test_dstr_dup_null(void)
 {
 	errno = 0;
 	dstr *dup = dstr_dup(NULL);
@@ -197,7 +197,7 @@ void test_dstr_dup_normal(void)
 	dstr_free(dup);
 }
 
-void test_dstr_dup_null(void)
+void test_dstr_dup_normal(void)
 {
 	dstr *original = dstr_new("tip");
 	dstr *dup = dstr_dup(original);
@@ -537,8 +537,8 @@ int main(void)
 	RUN_TEST(test_dstr_empty);
 	RUN_TEST(test_dstr_new_null_cstr);
 	RUN_TEST(test_dstr_new_stops_at_null);
-	RUN_TEST(test_dstr_dup_normal);
 	RUN_TEST(test_dstr_dup_null);
+	RUN_TEST(test_dstr_dup_normal);
 	RUN_TEST(test_dstr_cat_n_null_dest_arg);
 	RUN_TEST(test_dstr_cat_n_empty_dstr);
 	RUN_TEST(test_dstr_cat_n_null_dest);
