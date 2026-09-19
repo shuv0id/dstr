@@ -66,17 +66,24 @@ void dstr_free(dstr *str);
 
 /* Append 'src' of 'n' bytes to 'dest' by mutating `dest`. This
  * function is binary-safe and automatically grows `dest` if
- * needed. src and *dest can be equal.
+ * needed.
+ *
+ * Self-appending is supported when src points to the beginning
+ * of the data buffer of *dest. The src pointer is not guaranteed
+ * to be remain valid if reallocation occurs.
+ *
  * Returns 0 on success and -1 on failure.
  * If n is 0 then operation is no-op and returns 0.
- * Returns -1 and sets errno to EINVAL if following invalid
- * arguments are passed:
+ *
+ * Returns -1 and sets errno to EINVAL if following invalid arguments
+ * are passed:
  * - NULL dest or
  * - NULL *dest or
  * - NULL src and n > 0
- * This operation can fail if requested size of bytes could not be
- * appended to dest in which case -1 is returned and errno is set
- * to EOVERFLOW.
+ *
+ * If the required size calculation overflows, returns -1 and sets
+ * errno to EOVERFLOW.
+ * On allocation failures, it returns -1.
  */
 int dstr_cat_n(dstr **dest, const void *src, size_t n);
 
@@ -188,36 +195,42 @@ int dstr_cat_n(dstr **dest, const void *src, size_t n)
 	if (n == 0)
 		return 0;
 
-	if (n > SIZE_MAX - (*dest)->len - 1) {
+	// Reserve space for the header and NUL terminator before
+	// validating variable-sized component to prevent underflow
+	if ((*dest)->len > SIZE_MAX - sizeof(dstr) - 1) {
 		errno = EOVERFLOW;
 		return -1;
 	}
 
-	size_t new_sz = (*dest)->len + n + 1;
-
-	if ((*dest)->cap < new_sz - sizeof(dstr)) {
-		size_t curr_sz = sizeof(dstr) + (*dest)->cap;
-		if (curr_sz <= (SIZE_MAX / 2) && curr_sz * 2 > new_sz)
-			new_sz = curr_sz * 2;
-
-		dstr *old = *dest;
-		dstr *new_str = DSTR_ALLOC(*dest, new_sz);
-
-		if (!new_str) {
-			return -1;
-		}
-
-		// Reallocation can make the previous pointer invalid
-		*dest = new_str;
-		if (old == src) {
-			// Incase provided dest and src were equal we also
-			// need to change src to the pointer to new memory
-			// location
-			src = new_str;
-		}
-
-		(*dest)->cap = new_sz - sizeof(dstr);
+	// len is bounded, so this subtraction cannot underflow
+	// Now validate whether n fits in the remaining space.
+	if (n > SIZE_MAX - sizeof(dstr) - (*dest)->len - 1) {
+		errno = EOVERFLOW;
+		return -1;
 	}
+
+	size_t reqd_cap = (*dest)->len + n + 1;
+
+	bool self_append = (src == (*dest)->data);
+
+	if ((*dest)->cap < reqd_cap) {
+		size_t curr_alloc_sz = sizeof(dstr) + (*dest)->cap;
+		size_t new_alloc_sz = sizeof(dstr) + reqd_cap;
+
+		if (curr_alloc_sz <= (SIZE_MAX / 2) && curr_alloc_sz * 2 > new_alloc_sz)
+			new_alloc_sz = curr_alloc_sz * 2;
+
+		dstr *new_str = DSTR_ALLOC(*dest, new_alloc_sz);
+
+		if (!new_str)
+			return -1;
+
+		*dest = new_str;
+		(*dest)->cap = new_alloc_sz - sizeof(dstr);
+	}
+
+	if (self_append)
+		src = (*dest)->data;
 
 	memmove((*dest)->data + (*dest)->len, src, n);
 	(*dest)->len += n;
