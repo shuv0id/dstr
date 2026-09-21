@@ -38,7 +38,8 @@ typedef struct dstr {
  * 'n' and return a pointer to it. Returns NULL on failure. If data
  * is NULL, returns NULL and sets errno to EINVAL. If the requested
  * allocation size overflows, returns NULL and sets errno to
- * EOVERFLOW.
+ * EOVERFLOW. On allocation failures it returns -1 and sets errno to
+ * ENOMEM.
  */
 dstr *dstr_new_n(const void *data, size_t n);
 
@@ -83,7 +84,7 @@ void dstr_free(dstr *str);
  *
  * If the required size calculation overflows, returns -1 and sets
  * errno to EOVERFLOW.
- * On allocation failures, it returns -1.
+ * On allocation failures, it returns -1 and sets errno to ENOMEM.
  */
 int dstr_cat_n(dstr **dest, const void *src, size_t n);
 
@@ -142,8 +143,10 @@ dstr *dstr_new_n(const void *data, size_t n)
 
 	dstr *str = DSTR_ALLOC(NULL, sizeof(dstr) + cap);
 
-	if (!str)
+	if (!str) {
+		errno = ENOMEM;
 		return NULL;
+	}
 
 	str->len = n;
 	str->cap = cap;
@@ -222,8 +225,10 @@ int dstr_cat_n(dstr **dest, const void *src, size_t n)
 
 		dstr *new_str = DSTR_ALLOC(*dest, new_alloc_sz);
 
-		if (!new_str)
+		if (!new_str) {
+			errno = ENOMEM;
 			return -1;
+		}
 
 		*dest = new_str;
 		(*dest)->cap = new_alloc_sz - sizeof(dstr);
