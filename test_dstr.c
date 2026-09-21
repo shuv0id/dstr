@@ -102,10 +102,10 @@ void test_dstr_new_n_normal(void)
 
 	dstr *str = dstr_new_n(greet, 5);
 
-	ASSERT_EQUAL(size_t, strlen(greet), str->len);
-	ASSERT_TRUE(str->cap > 5);
-	ASSERT_TRUE(memcmp(str->data, greet, str->len) == 0);
-	ASSERT_EQUAL(char, '\0', str->data[str->len]);
+	ASSERT_EQUAL(size_t, strlen(greet), dstr_len(str));
+	ASSERT_TRUE(dstr_cap(str) > 5);
+	ASSERT_TRUE(memcmp(dstr_data(str), greet, dstr_len(str)) == 0);
+	ASSERT_EQUAL(char, '\0', dstr_data(str)[dstr_len(str)]);
 
 	dstr_free(str);
 }
@@ -129,7 +129,7 @@ void test_dstr_new_n_copies_input(void)
 
 	greet[0] = 'X';
 
-	ASSERT_TRUE(memcmp(str->data, "Hello", str->len) == 0);
+	ASSERT_TRUE(memcmp(dstr_data(str), "Hello", dstr_len(str)) == 0);
 
 	dstr_free(str);
 }
@@ -140,10 +140,10 @@ void test_dstr_new_n_binary_data(void)
 
 	dstr *str = dstr_new_n(buf, sizeof(buf));
 
-	ASSERT_EQUAL(size_t, sizeof(buf), str->len);
-	ASSERT_TRUE(str->cap > 4);
-	ASSERT_TRUE(memcmp(str->data, buf, str->len) == 0);
-	ASSERT_EQUAL(char, '\0', str->data[str->len]);
+	ASSERT_EQUAL(size_t, sizeof(buf), dstr_len(str));
+	ASSERT_TRUE(dstr_cap(str) > 4);
+	ASSERT_TRUE(memcmp(dstr_data(str), buf, dstr_len(str)) == 0);
+	ASSERT_EQUAL(char, '\0', dstr_data(str)[dstr_len(str)]);
 
 	dstr_free(str);
 }
@@ -152,9 +152,9 @@ void test_dstr_empty(void)
 {
 	dstr *str = dstr_empty();
 
-	ASSERT_EQUAL(size_t, 0, str->len);
-	ASSERT_TRUE(str->cap > 0);
-	ASSERT_TRUE(str->data[0] == '\0');
+	ASSERT_EQUAL(size_t, 0, dstr_len(str));
+	ASSERT_TRUE(dstr_cap(str) > 0);
+	ASSERT_TRUE(dstr_data(str)[0] == '\0');
 
 	dstr_free(str);
 }
@@ -178,10 +178,10 @@ void test_dstr_new_stops_at_null(void)
 
 	dstr *str = dstr_new(hello);
 
-	ASSERT_EQUAL(size_t, 5, str->len);
-	ASSERT_TRUE(str->cap > 5);
-	ASSERT_TRUE(strcmp(hello, str->data) == 0);
-	ASSERT_EQUAL(char, '\0', str->data[str->len]);
+	ASSERT_EQUAL(size_t, 5, dstr_len(str));
+	ASSERT_TRUE(dstr_cap(str) > 5);
+	ASSERT_TRUE(strcmp(hello, dstr_data(str)) == 0);
+	ASSERT_EQUAL(char, '\0', dstr_data(str)[dstr_len(str)]);
 
 	dstr_free(str);
 }
@@ -202,12 +202,18 @@ void test_dstr_dup_normal(void)
 	dstr *original = dstr_new("tip");
 	dstr *dup = dstr_dup(original);
 
-	// Test-only: mutate the internal buffer to verify a deep copy.
-	original->data[1] = 'a';
+	ASSERT_TRUE(dstr_data(original) != dstr_data(dup));
 
-	ASSERT_EQUAL(size_t, dup->len, original->len);
-	ASSERT_TRUE(original->data != dup->data);
-	ASSERT_FALSE(memcmp(original->data, dup->data, original->len) == 0);
+	// Mutate original dstr by appending more data to its buffer.
+	ASSERT_TRUE(dstr_cat_n(&original, "tap", 3) == 0);
+
+	ASSERT_EQUAL(size_t, 6, dstr_len(original));
+	ASSERT_EQUAL(size_t, 3, dstr_len(dup));
+
+	ASSERT_TRUE(strcmp(dstr_data(original), "tiptap") == 0);
+
+	// Appending to the original should not modify the duplicate.
+	ASSERT_TRUE(strcmp(dstr_data(dup), "tip") == 0);
 
 	dstr_free(original);
 	dstr_free(dup);
@@ -221,9 +227,9 @@ void test_dstr_cat_n_empty_dstr(void)
 	int done = dstr_cat_n(&dest, greet, 10);
 
 	ASSERT_EQUAL(int, 0, done);
-	ASSERT_EQUAL(size_t, 10, dest->len);
-	ASSERT_TRUE(dest->cap > 10);
-	ASSERT_TRUE(memcmp(dest->data, greet, dest->len) == 0);
+	ASSERT_EQUAL(size_t, 10, dstr_len(dest));
+	ASSERT_TRUE(dstr_cap(dest) > 10);
+	ASSERT_TRUE(memcmp(dstr_data(dest), greet, dstr_len(dest)) == 0);
 
 	dstr_free(dest);
 }
@@ -250,17 +256,17 @@ void test_dstr_cat_n_null_dest(void)
 void test_dstr_cat_n_null_src(void)
 {
 	dstr *hello = dstr_new("hello");
-	const size_t prev_len = hello->len;
-	const size_t prev_cap = hello->cap;
+	const size_t prev_len = dstr_len(hello);
+	const size_t prev_cap = dstr_cap(hello);
 
 	errno = 0;
 	int done = dstr_cat_n(&hello, NULL, 1);
 
 	ASSERT_EQUAL(int, -1, done);
 	ASSERT_EQUAL(int, EINVAL, errno);
-	ASSERT_EQUAL(size_t, prev_len, hello->len);
-	ASSERT_EQUAL(size_t, prev_cap, hello->cap);
-	ASSERT_TRUE(memcmp(hello->data, "hello", hello->len) == 0);
+	ASSERT_EQUAL(size_t, prev_len, dstr_len(hello));
+	ASSERT_EQUAL(size_t, prev_cap, dstr_cap(hello));
+	ASSERT_TRUE(memcmp(dstr_data(hello), "hello", dstr_len(hello)) == 0);
 
 	dstr_free(hello);
 }
@@ -273,9 +279,9 @@ void test_dstr_cat_n_src_with_null_byte(void)
 	int ok = dstr_cat_n(&dest, greet, 6);
 
 	ASSERT_EQUAL(int, 0, ok);
-	ASSERT_EQUAL(size_t, 11, dest->len);
-	ASSERT_TRUE(dest->cap > 11);
-	ASSERT_TRUE(memcmp(dest->data, "hello\0world", dest->len) == 0);
+	ASSERT_EQUAL(size_t, 11, dstr_len(dest));
+	ASSERT_TRUE(dstr_cap(dest) > 11);
+	ASSERT_TRUE(memcmp(dstr_data(dest), "hello\0world", dstr_len(dest)) == 0);
 
 	dstr_free(dest);
 }
@@ -287,9 +293,9 @@ void test_dstr_cat_normal(void)
 
 	int done = dstr_cat(&hello, world);
 	ASSERT_EQUAL(int, 0, done);
-	ASSERT_EQUAL(size_t, 11, hello->len);
-	ASSERT_TRUE(hello->cap > 11);
-	ASSERT_TRUE(memcmp(hello->data, "hello\0world", hello->len) == 0);
+	ASSERT_EQUAL(size_t, 11, dstr_len(hello));
+	ASSERT_TRUE(dstr_cap(hello) > 11);
+	ASSERT_TRUE(memcmp(dstr_data(hello), "hello\0world", dstr_len(hello)) == 0);
 
 	dstr_free(hello);
 	dstr_free(world);
@@ -298,17 +304,17 @@ void test_dstr_cat_normal(void)
 void test_dstr_cat_null_src(void)
 {
 	dstr *hello = dstr_new("hello");
-	const size_t prev_len = hello->len;
-	const size_t prev_cap = hello->cap;
+	const size_t prev_len = dstr_len(hello);
+	const size_t prev_cap = dstr_cap(hello);
 
 	errno = 0;
 	int done = dstr_cat(&hello, NULL);
 
 	ASSERT_EQUAL(int, -1, done);
 	ASSERT_EQUAL(int, EINVAL, errno);
-	ASSERT_EQUAL(size_t, prev_len, hello->len);
-	ASSERT_EQUAL(size_t, prev_cap, hello->cap);
-	ASSERT_TRUE(memcmp(hello->data, "hello", hello->len) == 0);
+	ASSERT_EQUAL(size_t, prev_len, dstr_len(hello));
+	ASSERT_EQUAL(size_t, prev_cap, dstr_cap(hello));
+	ASSERT_TRUE(memcmp(dstr_data(hello), "hello", dstr_len(hello)) == 0);
 
 	dstr_free(hello);
 }
@@ -318,14 +324,14 @@ void test_dstr_cat_cstr_normal(void)
 	char *world = "world";
 
 	dstr *hello = dstr_new("hello");
-	const size_t prev_len = hello->len;
+	const size_t prev_len = dstr_len(hello);
 
 	int done = dstr_cat_cstr(&hello, world);
 
 	ASSERT_EQUAL(int, 0, done);
-	ASSERT_EQUAL(size_t, prev_len + strlen(world), hello->len);
-	ASSERT_TRUE(hello->cap > 10);
-	ASSERT_TRUE(memcmp(hello->data, "helloworld", hello->len) == 0);
+	ASSERT_EQUAL(size_t, prev_len + strlen(world), dstr_len(hello));
+	ASSERT_TRUE(dstr_cap(hello) > 10);
+	ASSERT_TRUE(memcmp(dstr_data(hello), "helloworld", dstr_len(hello)) == 0);
 
 	dstr_free(hello);
 }
@@ -333,17 +339,17 @@ void test_dstr_cat_cstr_normal(void)
 void test_dstr_cat_cstr_null_src(void)
 {
 	dstr *hello = dstr_new("hello");
-	const size_t prev_len = hello->len;
-	const size_t prev_cap = hello->cap;
+	const size_t prev_len = dstr_len(hello);
+	const size_t prev_cap = dstr_cap(hello);
 
 	errno = 0;
 	int done = dstr_cat_cstr(&hello, NULL);
 
 	ASSERT_EQUAL(int, -1, done);
 	ASSERT_EQUAL(int, EINVAL, errno);
-	ASSERT_EQUAL(size_t, prev_len, hello->len);
-	ASSERT_EQUAL(size_t, prev_cap, hello->cap);
-	ASSERT_TRUE(memcmp(hello->data, "hello", hello->len) == 0);
+	ASSERT_EQUAL(size_t, prev_len, dstr_len(hello));
+	ASSERT_EQUAL(size_t, prev_cap, dstr_cap(hello));
+	ASSERT_TRUE(memcmp(dstr_data(hello), "hello", dstr_len(hello)) == 0);
 
 	dstr_free(hello);
 }
@@ -353,15 +359,15 @@ void test_dstr_cat_cstr_src_with_null_byte(void)
 	char *world = "world\0anduniverse";
 
 	dstr *hello = dstr_new("hello");
-	const size_t prev_len = hello->len;
+	const size_t prev_len = dstr_len(hello);
 
 	int done = dstr_cat_cstr(&hello, world);
 
 	ASSERT_EQUAL(int, 0, done);
-	ASSERT_EQUAL(size_t, prev_len + strlen(world), hello->len);
-	ASSERT_TRUE(hello->cap > 10);
-	ASSERT_EQUAL(char, '\0', hello->data[hello->len]);
-	ASSERT_TRUE(memcmp(hello->data, "helloworld", hello->len) == 0);
+	ASSERT_EQUAL(size_t, prev_len + strlen(world), dstr_len(hello));
+	ASSERT_TRUE(dstr_cap(hello) > 10);
+	ASSERT_EQUAL(char, '\0', dstr_data(hello)[dstr_len(hello)]);
+	ASSERT_TRUE(memcmp(dstr_data(hello), "helloworld", dstr_len(hello)) == 0);
 
 	dstr_free(hello);
 }

@@ -16,23 +16,17 @@
 #define DSTR_FREE(p) free(p)
 #endif
 
-/*
- * Invariants:
- *
- * - cap is the total number of bytes available in data[],
- * including space for the terminating NUL byte.
- * - len < cap
- * - data[len] == '\0'
- *
- * Total allocation size:
- * - sizeof(dstr) + cap bytes
- *
- */
-typedef struct dstr {
-	size_t len;
-	size_t cap;
-	char data[];
-} dstr;
+/* Opaque dstr type */
+typedef struct dstr dstr;
+
+/* Get len of dstr data */
+size_t dstr_len(const dstr *str);
+
+/* Get capacity (allocated size of data buffer) */
+size_t dstr_cap(const dstr *str);
+
+/* Get a pointer to the beginning of the dstr's data buffer */
+const char *dstr_data(const dstr *str);
 
 /* Create a new dstr with content specified by 'data' upto length
  * 'n' and return a pointer to it. Returns NULL on failure. If data
@@ -70,8 +64,9 @@ void dstr_free(dstr *str);
  * needed.
  *
  * Self-appending is supported when src points to the beginning
- * of the data buffer of *dest. The src pointer is not guaranteed
- * to be remain valid if reallocation occurs.
+ * of the data buffer of *dest obtained by using dstr_data(). The
+ * src pointer is not guaranteed to be remain valid if reallocation
+ * occurs.
  *
  * Returns 0 on success and -1 on failure.
  * If n is 0 then operation is no-op and returns 0.
@@ -89,10 +84,9 @@ void dstr_free(dstr *str);
 int dstr_cat_n(dstr **dest, const void *src, size_t n);
 
 /* Append the contents of `src` to `dest`. Equivalent to
- * dstr_cat_n(dest, src->data, src->len) and inherits same invalid
- * argument and overflow handling.
- * Returns -1 if src is NULL and errno is set to
- * EINVAL.
+ * dstr_cat_n(dest, dstr_data(src), dstr_len(src)) and inherits the
+ * same invalid argument and overflow handling. Returns -1 if src
+ * is NULL and errno is set to EINVAL.
  */
 int dstr_cat(dstr **dest, const dstr *src);
 
@@ -126,6 +120,39 @@ bool dstr_eq_ignorecase(const dstr *a, const dstr *b);
 #endif // DSTR_H
 
 #ifdef DSTR_IMPLEMENTATION
+
+/*
+ * Invariants:
+ *
+ * - cap is the total number of bytes available in data[],
+ * including space for the terminating NUL byte.
+ * - len < cap
+ * - data[len] == '\0'
+ *
+ * Total allocation size:
+ * - sizeof(dstr) + cap bytes
+ *
+ */
+struct dstr {
+	size_t len;
+	size_t cap;
+	char data[];
+};
+
+size_t dstr_len(const dstr *str)
+{
+	return str->len;
+}
+
+size_t dstr_cap(const dstr *str)
+{
+	return str->cap;
+}
+
+const char *dstr_data(const dstr *str)
+{
+	return str->data;
+}
 
 dstr *dstr_new_n(const void *data, size_t n)
 {
