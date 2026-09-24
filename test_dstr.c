@@ -286,6 +286,32 @@ void test_dstr_cat_n_src_with_null_byte(void)
 	dstr_free(dest);
 }
 
+void test_dstr_cat_n_large_data(void)
+{
+	dstr *abc = dstr_new("abc");
+
+	size_t old_len = dstr_len(abc);
+	size_t old_cap = dstr_cap(abc);
+
+	// Append data with size larger than the
+	// capacity of abc dstr to ensure reallocation
+	size_t large_data_sz = old_cap * 2;
+	char large_data[large_data_sz];
+	for (size_t i = 0; i < large_data_sz; i++) {
+		large_data[i] = '#';
+	}
+
+	int done = dstr_cat_n(&abc, large_data, large_data_sz);
+
+	ASSERT_EQUAL(int, 0, done);
+	ASSERT_EQUAL(size_t, old_len + large_data_sz, dstr_len(abc));
+	ASSERT_TRUE(memcmp(dstr_data(abc), "abc", old_len) == 0);
+	ASSERT_TRUE(memcmp(dstr_data(abc) + old_len, large_data, large_data_sz) == 0);
+	ASSERT_EQUAL(char, '\0', dstr_data(abc)[dstr_len(abc)]);
+
+	dstr_free(abc);
+}
+
 void test_dstr_cat_normal(void)
 {
 	dstr *hello = dstr_new_n("hello", 5);
@@ -550,6 +576,7 @@ int main(void)
 	RUN_TEST(test_dstr_cat_n_null_dest);
 	RUN_TEST(test_dstr_cat_n_null_src);
 	RUN_TEST(test_dstr_cat_n_src_with_null_byte);
+	RUN_TEST(test_dstr_cat_n_large_data);
 	RUN_TEST(test_dstr_cat_normal);
 	RUN_TEST(test_dstr_cat_null_src);
 	RUN_TEST(test_dstr_cat_cstr_normal);
