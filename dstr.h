@@ -54,6 +54,32 @@ dstr *dstr_new(const char *cstr);
  */
 dstr *dstr_dup(const dstr *s);
 
+/* Overwrite the data of str with the provided data upto length n,
+ * followed by a NUL terminator. Passing str and data with overlapping
+ * memory areas results in undefined behaviour. This avoids re-allocation
+ * if n fits within the current capacity of str.
+ *
+ * Returns -1 on failure and 0 on success.
+ * If n is 0 then its a no-op and 0 is returned.
+ *
+ * Returns -1 and sets errno to EINVAL if any of following invalid arguments
+ * are passed:
+ * - NULL str
+ * - NULL *str
+ * - NULL data with n > 0
+ *
+ * If the required size calculation overflows, returns -1 and sets
+ * errno to EOVERFLOW.
+ * On allocation failure, it returns -1 and sets errno to ENOMEM.
+ */
+int dstr_set(dstr **str, const void *data, size_t n);
+
+/* Resets the length of the provided dstr to zero and places a '\0'
+ * at the beginning of the data buffer. Passing NULL str is a no-op.
+ * It does not free memory previously allocated for data buffer.
+ */
+void dstr_reset(dstr *str);
+
 /* Free the memory space pointed by str. If str is NULL then its a no-op.
  * Using str after is undefined behaviour.
  */
@@ -206,6 +232,57 @@ dstr *dstr_dup(const dstr *s)
 	}
 
 	return dstr_new_n(s->data, s->len);
+}
+
+int dstr_set(dstr **str, const void *data, size_t n)
+{
+	if (!str || !(*str) || (!data && n > 0)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	if (n == 0)
+		return 0;
+
+	if (n > SIZE_MAX - sizeof(dstr) - 1) {
+		errno = EOVERFLOW;
+		return -1;
+	}
+
+	size_t reqd_cap = n + 1;
+
+	if ((*str)->cap < reqd_cap) {
+		size_t curr_alloc_sz = sizeof(dstr) + (*str)->cap;
+		size_t new_alloc_sz = sizeof(dstr) + reqd_cap;
+
+		if (curr_alloc_sz <= (SIZE_MAX / 2) && curr_alloc_sz * 2 > new_alloc_sz)
+			new_alloc_sz = curr_alloc_sz * 2;
+
+		dstr *new_str = DSTR_ALLOC(*str, new_alloc_sz);
+
+		if (!new_str) {
+			errno = ENOMEM;
+			return -1;
+		}
+
+		*str = new_str;
+		(*str)->cap = new_alloc_sz - sizeof(dstr);
+	}
+
+	memcpy((*str)->data, data, n);
+	(*str)->len = n;
+	(*str)->data[n] = '\0';
+
+	return 0;
+}
+
+void dstr_reset(dstr *str)
+{
+	if (!str)
+		return;
+
+	str->len = 0;
+	str->data[0] = '\0';
 }
 
 void dstr_free(dstr *str)
