@@ -16,13 +16,16 @@
 #define DSTR_FREE(p) free(p)
 #endif
 
-/* Opaque dstr type */
+/* Opaque dstr type. A dstr can store binary data. Its data is always
+ * NUL-terminated. */
 typedef struct dstr dstr;
 
 /* Get len of dstr data */
 size_t dstr_len(const dstr *str);
 
-/* Get capacity (allocated size of data buffer) */
+/* Get number of bytes available to store string data. It is
+ * greater than or equal to the length of the string. It does
+ * not include space for the terminating NUL character. */
 size_t dstr_cap(const dstr *str);
 
 /* Get a pointer to the beginning of the dstr's data buffer */
@@ -37,8 +40,9 @@ const char *dstr_data(const dstr *str);
  */
 dstr *dstr_new_n(const void *data, size_t n);
 
-/* Returns pointer to a new dstr with data holding a '\0' character
- * and zero length. Equivalent to dstr_new_n("", 0).
+/* Returns pointer to a new dstr with a '\0' character at the
+ * beginning of its data and length of zero. Equivalent to
+ * dstr_new_n("", 0).
  */
 dstr *dstr_empty(void);
 
@@ -55,9 +59,10 @@ dstr *dstr_new(const char *cstr);
 dstr *dstr_dup(const dstr *s);
 
 /* Overwrite the data of str with the provided data upto length n,
- * followed by a NUL terminator. Passing str and data with overlapping
- * memory areas results in undefined behaviour. This avoids re-allocation
- * if n fits within the current capacity of str.
+ * immediately followed by a '\0' character. The memory regions
+ * containing the provided data and string data must not overlap.
+ * This avoids re-allocation if n fits within the current capacity
+ * of str.
  *
  * Returns -1 on failure and 0 on success.
  * If n is 0 then its a no-op and 0 is returned.
@@ -80,8 +85,8 @@ int dstr_set(dstr **str, const void *data, size_t n);
  */
 void dstr_reset(dstr *str);
 
-/* Free the memory space pointed by str. If str is NULL then its a no-op.
- * Using str after is undefined behaviour.
+/* Free `str`. If str is NULL then its a no-op. The dstr is invalid
+ * after being freed.
  */
 void dstr_free(dstr *str);
 
@@ -105,20 +110,20 @@ void dstr_free(dstr *str);
 int dstr_cat_n(dstr **dest, const void *src, size_t n);
 
 /* Append the contents of `src` to `dest`. Equivalent to
- * dstr_cat_n(dest, dstr_data(src), dstr_len(src)) and inherits the
+ * dstr_cat_n(dest, dstr_data(src), dstr_len(src)) and follows the
  * same invalid argument and overflow handling. Returns -1 if src
  * is NULL and errno is set to EINVAL.
  */
 int dstr_cat(dstr **dest, const dstr *src);
 
 /* Append NUL-terminated c strings to `dest` dstr. Equivalent to
- * dstr_cat_n(dest, src, strlen(src)) and inherits same invalid
+ * dstr_cat_n(dest, src, strlen(src)) and follows same invalid
  * argument and overflow handling. Returns -1 if src is NULL and
  * errno is set to EINVAL.
  */
 int dstr_cat_cstr(dstr **dest, const char *cstr);
 
-/* compare at most n bytes of a and b lexicographically.
+/* Compare at most n bytes of a and b lexicographically.
  * Returns <0, 0, or >0 if a is less than, equal to, or greater
  * than b respectively. If the compared bytes are equal and n
  * exceeds the length of either dstr, the lengths are used to
@@ -145,13 +150,13 @@ bool dstr_eq_ignorecase(const dstr *a, const dstr *b);
 /*
  * Invariants:
  *
- * - cap is the total number of bytes available in data[],
- * including space for the terminating NUL byte.
- * - len < cap
+ * - cap is the number of bytes available for string data, excluding
+ *   the NUL terminator
+ * - len <= cap
  * - data[len] == '\0'
  *
  * Total allocation size:
- * - sizeof(dstr) + cap bytes
+ * - sizeof(dstr) + cap + 1(for NUL terminator) bytes
  *
  */
 struct dstr {
@@ -187,9 +192,7 @@ dstr *dstr_new_n(const void *data, size_t n)
 		return NULL;
 	}
 
-	size_t cap = n + 1;
-
-	dstr *str = DSTR_ALLOC(NULL, sizeof(dstr) + cap);
+	dstr *str = DSTR_ALLOC(NULL, sizeof(dstr) + n + 1);
 
 	if (!str) {
 		errno = ENOMEM;
@@ -197,7 +200,7 @@ dstr *dstr_new_n(const void *data, size_t n)
 	}
 
 	str->len = n;
-	str->cap = cap;
+	str->cap = n;
 	memcpy(str->data, data, n);
 	str->data[str->len] = '\0';
 
@@ -244,11 +247,9 @@ int dstr_set(dstr **str, const void *data, size_t n)
 		return -1;
 	}
 
-	size_t reqd_cap = n + 1;
-
-	if ((*str)->cap < reqd_cap) {
-		size_t curr_alloc_sz = sizeof(dstr) + (*str)->cap;
-		size_t new_alloc_sz = sizeof(dstr) + reqd_cap;
+	if ((*str)->cap < n) {
+		size_t curr_alloc_sz = sizeof(dstr) + (*str)->cap + 1;
+		size_t new_alloc_sz = sizeof(dstr) + n + 1;
 
 		if (curr_alloc_sz <= (SIZE_MAX / 2) && curr_alloc_sz * 2 > new_alloc_sz)
 			new_alloc_sz = curr_alloc_sz * 2;
@@ -261,7 +262,7 @@ int dstr_set(dstr **str, const void *data, size_t n)
 		}
 
 		*str = new_str;
-		(*str)->cap = new_alloc_sz - sizeof(dstr);
+		(*str)->cap = new_alloc_sz - sizeof(dstr) - 1;
 	}
 
 	memcpy((*str)->data, data, n);
@@ -311,11 +312,11 @@ int dstr_cat_n(dstr **dest, const void *src, size_t n)
 		return -1;
 	}
 
-	size_t reqd_cap = (*dest)->len + n + 1;
+	size_t reqd_cap = (*dest)->len + n;
 
 	if ((*dest)->cap < reqd_cap) {
-		size_t curr_alloc_sz = sizeof(dstr) + (*dest)->cap;
-		size_t new_alloc_sz = sizeof(dstr) + reqd_cap;
+		size_t curr_alloc_sz = sizeof(dstr) + (*dest)->cap + 1;
+		size_t new_alloc_sz = sizeof(dstr) + reqd_cap + 1;
 
 		if (curr_alloc_sz <= (SIZE_MAX / 2) && curr_alloc_sz * 2 > new_alloc_sz)
 			new_alloc_sz = curr_alloc_sz * 2;
@@ -328,7 +329,7 @@ int dstr_cat_n(dstr **dest, const void *src, size_t n)
 		}
 
 		*dest = new_str;
-		(*dest)->cap = new_alloc_sz - sizeof(dstr);
+		(*dest)->cap = new_alloc_sz - sizeof(dstr) - 1;
 	}
 
 	memcpy((*dest)->data + (*dest)->len, src, n);
