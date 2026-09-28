@@ -398,21 +398,6 @@ void test_dstr_cat_n_large_data(void)
 	dstr_free(abc);
 }
 
-void test_dstr_cat_n_self_append(void)
-{
-	dstr *abc = dstr_new("abc");
-	size_t old_len = dstr_len(abc);
-
-	int done = dstr_cat_n(&abc, dstr_data(abc), old_len);
-
-	ASSERT_EQUAL(int, 0, done);
-	ASSERT_EQUAL(size_t, old_len * 2, dstr_len(abc));
-	ASSERT_TRUE(memcmp(dstr_data(abc), "abcabc", dstr_len(abc)) == 0);
-	ASSERT_EQUAL(char, '\0', dstr_data(abc)[dstr_len(abc)]);
-
-	dstr_free(abc);
-}
-
 void test_dstr_cat_normal(void)
 {
 	dstr *hello = dstr_new_n("hello", 5);
@@ -684,7 +669,6 @@ int main(void)
 	RUN_TEST(test_dstr_cat_n_null_src);
 	RUN_TEST(test_dstr_cat_n_src_with_null_byte);
 	RUN_TEST(test_dstr_cat_n_large_data);
-	RUN_TEST(test_dstr_cat_n_self_append);
 	RUN_TEST(test_dstr_cat_normal);
 	RUN_TEST(test_dstr_cat_null_src);
 	RUN_TEST(test_dstr_cat_cstr_normal);

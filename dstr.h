@@ -85,14 +85,9 @@ void dstr_reset(dstr *str);
  */
 void dstr_free(dstr *str);
 
-/* Append 'src' of 'n' bytes to 'dest' by mutating `dest`. This
+/* Append 'src' of 'n' bytes to '*dest' by mutating `*dest`. This
  * function is binary-safe and automatically grows `dest` if
- * needed.
- *
- * Self-appending is supported when src points to the beginning
- * of the data buffer of *dest obtained by using dstr_data(). The
- * src pointer is not guaranteed to be remain valid if reallocation
- * occurs.
+ * needed. The source and destination memory regions must not overlap.
  *
  * Returns 0 on success and -1 on failure.
  * If n is 0 then operation is no-op and returns 0.
@@ -318,8 +313,6 @@ int dstr_cat_n(dstr **dest, const void *src, size_t n)
 
 	size_t reqd_cap = (*dest)->len + n + 1;
 
-	bool self_append = (src == (*dest)->data);
-
 	if ((*dest)->cap < reqd_cap) {
 		size_t curr_alloc_sz = sizeof(dstr) + (*dest)->cap;
 		size_t new_alloc_sz = sizeof(dstr) + reqd_cap;
@@ -338,10 +331,7 @@ int dstr_cat_n(dstr **dest, const void *src, size_t n)
 		(*dest)->cap = new_alloc_sz - sizeof(dstr);
 	}
 
-	if (self_append)
-		src = (*dest)->data;
-
-	memmove((*dest)->data + (*dest)->len, src, n);
+	memcpy((*dest)->data + (*dest)->len, src, n);
 	(*dest)->len += n;
 	(*dest)->data[(*dest)->len] = '\0';
 
