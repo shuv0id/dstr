@@ -40,11 +40,10 @@ const char *dstr_data(const dstr *str);
  */
 dstr *dstr_new_n(const void *data, size_t n);
 
-/* Returns pointer to a new dstr with a '\0' character at the
- * beginning of its data and length of zero. Equivalent to
- * dstr_new_n("", 0).
+/* Returns pointer to a new dstr with a '\0' character at the beginning
+ * of its data with a length of zero and a capacity of `cap`.
  */
-dstr *dstr_empty(void);
+dstr *dstr_empty(size_t cap);
 
 /* Create a new dstr with NUL-terminated c string and return a pointer
  * to it. It is equivalent to dstr_new_n(c_str, strlen(c_str)). Returns
@@ -207,9 +206,25 @@ dstr *dstr_new_n(const void *data, size_t n)
 	return str;
 }
 
-dstr *dstr_empty(void)
+dstr *dstr_empty(size_t cap)
 {
-	return dstr_new_n("", 0);
+	if (cap > SIZE_MAX - sizeof(dstr) - 1) {
+		errno = EOVERFLOW;
+		return NULL;
+	}
+
+	dstr *str = DSTR_ALLOC(NULL, sizeof(dstr) + cap + 1);
+
+	if (!str) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	str->len = 0;
+	str->cap = cap;
+	str->data[str->len] = '\0';
+
+	return str;
 }
 
 dstr *dstr_new(const char *c_str)

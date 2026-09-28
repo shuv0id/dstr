@@ -151,10 +151,10 @@ void test_dstr_new_n_binary_data(void)
 
 void test_dstr_empty(void)
 {
-	dstr *str = dstr_empty();
+	dstr *str = dstr_empty(64);
 
 	ASSERT_EQUAL(size_t, 0, dstr_len(str));
-	ASSERT_TRUE(dstr_cap(str) >= dstr_len(str));
+	ASSERT_EQUAL(size_t, 64, dstr_cap(str));
 	ASSERT_TRUE(dstr_data(str)[0] == '\0');
 
 	dstr_free(str);
@@ -309,7 +309,7 @@ void test_dstr_reset(void)
 void test_dstr_cat_n_empty_dstr(void)
 {
 	char *greet = "helloworld";
-	dstr *dest = dstr_empty();
+	dstr *dest = dstr_empty(0);
 
 	int done = dstr_cat_n(&dest, greet, strlen(greet));
 
