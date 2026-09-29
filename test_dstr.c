@@ -2,7 +2,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <errno.h>
 
 #define DSTR_IMPLEMENTATION
 #include "dstr.h"
@@ -115,11 +114,9 @@ void test_dstr_new_n_null(void)
 {
 	char *buf = NULL;
 
-	errno = 0;
 	dstr *str = dstr_new_n(buf, 5);
 
 	ASSERT_TRUE(str == NULL);
-	ASSERT_EQUAL(int, EINVAL, errno);
 }
 
 void test_dstr_new_n_copies_input(void)
@@ -164,11 +161,9 @@ void test_dstr_new_null_cstr(void)
 {
 	char *c_str = NULL;
 
-	errno = 0;
 	dstr *str = dstr_new(c_str);
 
 	ASSERT_TRUE(str == NULL);
-	ASSERT_EQUAL(int, EINVAL, errno);
 
 	dstr_free(str);
 }
@@ -189,11 +184,9 @@ void test_dstr_new_stops_at_null(void)
 
 void test_dstr_dup_null(void)
 {
-	errno = 0;
 	dstr *dup = dstr_dup(NULL);
 
 	ASSERT_TRUE(dup == NULL);
-	ASSERT_EQUAL(int, EINVAL, errno);
 
 	dstr_free(dup);
 }
@@ -237,21 +230,17 @@ void test_dstr_set(void)
 
 void test_dstr_set_null_str_arg(void)
 {
-	errno = 0;
 	int done = dstr_cat_n(NULL, NULL, 1);
 
 	ASSERT_EQUAL(int, -1, done);
-	ASSERT_EQUAL(int, EINVAL, errno);
 }
 
 void test_dstr_set_null_str(void)
 {
-	errno = 0;
 	dstr *str = NULL;
 	int done = dstr_cat_n(&str, NULL, 1);
 
 	ASSERT_EQUAL(int, -1, done);
-	ASSERT_EQUAL(int, EINVAL, errno);
 }
 
 void test_dstr_set_null_data(void)
@@ -260,11 +249,9 @@ void test_dstr_set_null_data(void)
 	const size_t prev_len = dstr_len(hello);
 	const size_t prev_cap = dstr_cap(hello);
 
-	errno = 0;
 	int done = dstr_cat_n(&hello, NULL, 1);
 
 	ASSERT_EQUAL(int, -1, done);
-	ASSERT_EQUAL(int, EINVAL, errno);
 	ASSERT_EQUAL(size_t, prev_len, dstr_len(hello));
 	ASSERT_EQUAL(size_t, prev_cap, dstr_cap(hello));
 	ASSERT_TRUE(memcmp(dstr_data(hello), "hello", dstr_len(hello)) == 0);
@@ -281,7 +268,6 @@ void test_dstr_set_zero_n(void)
 	const size_t prev_len = dstr_len(hello_dstr);
 	const size_t prev_cap = dstr_cap(hello_dstr);
 
-	errno = 0;
 	int done = dstr_cat_n(&hello_dstr, world, 0);
 
 	ASSERT_EQUAL(int, 0, done);
@@ -323,21 +309,17 @@ void test_dstr_cat_n_empty_dstr(void)
 
 void test_dstr_cat_n_null_dest_arg(void)
 {
-	errno = 0;
 	int done = dstr_cat_n(NULL, NULL, 1);
 
 	ASSERT_EQUAL(int, -1, done);
-	ASSERT_EQUAL(int, EINVAL, errno);
 }
 
 void test_dstr_cat_n_null_dest(void)
 {
-	errno = 0;
 	dstr *dest = NULL;
 	int done = dstr_cat_n(&dest, NULL, 1);
 
 	ASSERT_EQUAL(int, -1, done);
-	ASSERT_EQUAL(int, EINVAL, errno);
 }
 
 void test_dstr_cat_n_null_src(void)
@@ -346,11 +328,9 @@ void test_dstr_cat_n_null_src(void)
 	const size_t prev_len = dstr_len(hello);
 	const size_t prev_cap = dstr_cap(hello);
 
-	errno = 0;
 	int done = dstr_cat_n(&hello, NULL, 1);
 
 	ASSERT_EQUAL(int, -1, done);
-	ASSERT_EQUAL(int, EINVAL, errno);
 	ASSERT_EQUAL(size_t, prev_len, dstr_len(hello));
 	ASSERT_EQUAL(size_t, prev_cap, dstr_cap(hello));
 	ASSERT_TRUE(memcmp(dstr_data(hello), "hello", dstr_len(hello)) == 0);
@@ -420,11 +400,9 @@ void test_dstr_cat_null_src(void)
 	const size_t prev_len = dstr_len(hello);
 	const size_t prev_cap = dstr_cap(hello);
 
-	errno = 0;
 	int done = dstr_cat(&hello, NULL);
 
 	ASSERT_EQUAL(int, -1, done);
-	ASSERT_EQUAL(int, EINVAL, errno);
 	ASSERT_EQUAL(size_t, prev_len, dstr_len(hello));
 	ASSERT_EQUAL(size_t, prev_cap, dstr_cap(hello));
 	ASSERT_TRUE(memcmp(dstr_data(hello), "hello", dstr_len(hello)) == 0);
@@ -455,11 +433,9 @@ void test_dstr_cat_cstr_null_src(void)
 	const size_t prev_len = dstr_len(hello);
 	const size_t prev_cap = dstr_cap(hello);
 
-	errno = 0;
 	int done = dstr_cat_cstr(&hello, NULL);
 
 	ASSERT_EQUAL(int, -1, done);
-	ASSERT_EQUAL(int, EINVAL, errno);
 	ASSERT_EQUAL(size_t, prev_len, dstr_len(hello));
 	ASSERT_EQUAL(size_t, prev_cap, dstr_cap(hello));
 	ASSERT_TRUE(memcmp(dstr_data(hello), "hello", dstr_len(hello)) == 0);
@@ -555,11 +531,9 @@ void test_dstr_cmp_n_null_arg(void)
 {
 	dstr *a = NULL;
 
-	errno = 0;
 	dstr *b = dstr_new("wxyz");
 
 	ASSERT_EQUAL(int, -1, dstr_cmp_n(a, b, 0));
-	ASSERT_EQUAL(int, EINVAL, errno);
 
 	dstr_free(b);
 }

@@ -5,7 +5,6 @@
 #include <stdint.h>
 #include <string.h>
 #include <ctype.h>
-#include <errno.h>
 
 #if defined(DSTR_ALLOC) && !defined(DSTR_FREE) || !defined(DSTR_ALLOC) && defined(DSTR_FREE)
 #error "You must define both DSTR_ALLOC and DSTR_FREE, or neither"
@@ -32,11 +31,7 @@ size_t dstr_cap(const dstr *str);
 const char *dstr_data(const dstr *str);
 
 /* Create a new dstr with content specified by 'data' upto length
- * 'n' and return a pointer to it. Returns NULL on failure. If data
- * is NULL, returns NULL and sets errno to EINVAL. If the requested
- * allocation size overflows, returns NULL and sets errno to
- * EOVERFLOW. On allocation failures it returns -1 and sets errno to
- * ENOMEM.
+ * 'n' and return a pointer to it. Returns NULL on failure.
  */
 dstr *dstr_new_n(const void *data, size_t n);
 
@@ -47,13 +42,13 @@ dstr *dstr_empty(size_t cap);
 
 /* Create a new dstr with NUL-terminated c string and return a pointer
  * to it. It is equivalent to dstr_new_n(c_str, strlen(c_str)). Returns
- * NULL if cstr is NULL.
+ * NULL on failure.
  */
 dstr *dstr_new(const char *cstr);
 
 /* Returns a new dstr containing a deep copy of the contents of `s`.
  * The returned dstr has the same length and contents as `s`. Returns
- * NULL and sets errno to EINVAL if s is NULL.
+ * NULL on failure.
  */
 dstr *dstr_dup(const dstr *s);
 
@@ -65,16 +60,6 @@ dstr *dstr_dup(const dstr *s);
  *
  * Returns -1 on failure and 0 on success.
  * If n is 0 then its a no-op and 0 is returned.
- *
- * Returns -1 and sets errno to EINVAL if any of following invalid arguments
- * are passed:
- * - NULL str
- * - NULL *str
- * - NULL data with n > 0
- *
- * If the required size calculation overflows, returns -1 and sets
- * errno to EOVERFLOW.
- * On allocation failure, it returns -1 and sets errno to ENOMEM.
  */
 int dstr_set(dstr **str, const void *data, size_t n);
 
@@ -95,30 +80,18 @@ void dstr_free(dstr *str);
  *
  * Returns 0 on success and -1 on failure.
  * If n is 0 then operation is no-op and returns 0.
- *
- * Returns -1 and sets errno to EINVAL if following invalid arguments
- * are passed:
- * - NULL dest or
- * - NULL *dest or
- * - NULL src and n > 0
- *
- * If the required size calculation overflows, returns -1 and sets
- * errno to EOVERFLOW.
- * On allocation failures, it returns -1 and sets errno to ENOMEM.
  */
 int dstr_cat_n(dstr **dest, const void *src, size_t n);
 
 /* Append the contents of `src` to `dest`. Equivalent to
- * dstr_cat_n(dest, dstr_data(src), dstr_len(src)) and follows the
- * same invalid argument and overflow handling. Returns -1 if src
- * is NULL and errno is set to EINVAL.
+ * dstr_cat_n(dest, dstr_data(src), dstr_len(src)). Returns 0 on 
+ * success and -1 on failure.
  */
 int dstr_cat(dstr **dest, const dstr *src);
 
 /* Append NUL-terminated c strings to `dest` dstr. Equivalent to
- * dstr_cat_n(dest, src, strlen(src)) and follows same invalid
- * argument and overflow handling. Returns -1 if src is NULL and
- * errno is set to EINVAL.
+ * dstr_cat_n(dest, src, strlen(src)). Returns 0 on success and -1 on
+ * failure.
  */
 int dstr_cat_cstr(dstr **dest, const char *cstr);
 
@@ -126,8 +99,7 @@ int dstr_cat_cstr(dstr **dest, const char *cstr);
  * Returns <0, 0, or >0 if a is less than, equal to, or greater
  * than b respectively. If the compared bytes are equal and n
  * exceeds the length of either dstr, the lengths are used to
- * break the tie. If a or b is NULL, returns -1 and sets errno
- * to EINVAL.
+ * break the tie.
  */
 int dstr_cmp_n(const dstr *a, const dstr *b, size_t n);
 
@@ -182,19 +154,16 @@ const char *dstr_data(const dstr *str)
 dstr *dstr_new_n(const void *data, size_t n)
 {
 	if (!data) {
-		errno = EINVAL;
 		return NULL;
 	}
 
 	if (n > SIZE_MAX - sizeof(dstr) - 1) {
-		errno = EOVERFLOW;
 		return NULL;
 	}
 
 	dstr *str = DSTR_ALLOC(NULL, sizeof(dstr) + n + 1);
 
 	if (!str) {
-		errno = ENOMEM;
 		return NULL;
 	}
 
@@ -209,14 +178,12 @@ dstr *dstr_new_n(const void *data, size_t n)
 dstr *dstr_empty(size_t cap)
 {
 	if (cap > SIZE_MAX - sizeof(dstr) - 1) {
-		errno = EOVERFLOW;
 		return NULL;
 	}
 
 	dstr *str = DSTR_ALLOC(NULL, sizeof(dstr) + cap + 1);
 
 	if (!str) {
-		errno = ENOMEM;
 		return NULL;
 	}
 
@@ -230,7 +197,6 @@ dstr *dstr_empty(size_t cap)
 dstr *dstr_new(const char *c_str)
 {
 	if (!c_str) {
-		errno = EINVAL;
 		return NULL;
 	}
 
@@ -240,7 +206,6 @@ dstr *dstr_new(const char *c_str)
 dstr *dstr_dup(const dstr *s)
 {
 	if (!s) {
-		errno = EINVAL;
 		return NULL;
 	}
 
@@ -250,7 +215,6 @@ dstr *dstr_dup(const dstr *s)
 int dstr_set(dstr **str, const void *data, size_t n)
 {
 	if (!str || !(*str) || (!data && n > 0)) {
-		errno = EINVAL;
 		return -1;
 	}
 
@@ -258,7 +222,6 @@ int dstr_set(dstr **str, const void *data, size_t n)
 		return 0;
 
 	if (n > SIZE_MAX - sizeof(dstr) - 1) {
-		errno = EOVERFLOW;
 		return -1;
 	}
 
@@ -272,7 +235,6 @@ int dstr_set(dstr **str, const void *data, size_t n)
 		dstr *new_str = DSTR_ALLOC(*str, new_alloc_sz);
 
 		if (!new_str) {
-			errno = ENOMEM;
 			return -1;
 		}
 
@@ -306,7 +268,6 @@ void dstr_free(dstr *str)
 int dstr_cat_n(dstr **dest, const void *src, size_t n)
 {
 	if (!dest || !(*dest) || (!src && n > 0)) {
-		errno = EINVAL;
 		return -1;
 	}
 
@@ -316,14 +277,12 @@ int dstr_cat_n(dstr **dest, const void *src, size_t n)
 	// Reserve space for the header and NUL terminator before
 	// validating variable-sized component to prevent underflow
 	if ((*dest)->len > SIZE_MAX - sizeof(dstr) - 1) {
-		errno = EOVERFLOW;
 		return -1;
 	}
 
 	// len is bounded, so this subtraction cannot underflow
 	// Now validate whether n fits in the remaining space.
 	if (n > SIZE_MAX - sizeof(dstr) - (*dest)->len - 1) {
-		errno = EOVERFLOW;
 		return -1;
 	}
 
@@ -339,7 +298,6 @@ int dstr_cat_n(dstr **dest, const void *src, size_t n)
 		dstr *new_str = DSTR_ALLOC(*dest, new_alloc_sz);
 
 		if (!new_str) {
-			errno = ENOMEM;
 			return -1;
 		}
 
@@ -357,7 +315,6 @@ int dstr_cat_n(dstr **dest, const void *src, size_t n)
 int dstr_cat(dstr **dest, const dstr *src)
 {
 	if (!src) {
-		errno = EINVAL;
 		return -1;
 	}
 	return dstr_cat_n(dest, src->data, src->len);
@@ -366,7 +323,6 @@ int dstr_cat(dstr **dest, const dstr *src)
 int dstr_cat_cstr(dstr **dest, const char *src)
 {
 	if (!src) {
-		errno = EINVAL;
 		return -1;
 	}
 	return dstr_cat_n(dest, src, strlen(src));
@@ -375,7 +331,6 @@ int dstr_cat_cstr(dstr **dest, const char *src)
 int dstr_cmp_n(const dstr *a, const dstr *b, size_t n)
 {
 	if (!a || !b) {
-		errno = EINVAL;
 		return -1;
 	}
 
