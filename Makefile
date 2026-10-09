@@ -1,4 +1,4 @@
-CFLAGS = -Wall -Wextra -Werror -pedantic -std=c17 -fsanitize=address,undefined
+CFLAGS = -Wall -Wextra -Werror -g -pedantic -std=c17 -fsanitize=address,undefined
 CC = gcc
 TEST_BIN_DIR = ./test-bin
 
