@@ -84,7 +84,7 @@ void dstr_free(dstr *str);
 int dstr_cat_n(dstr **dest, const void *src, size_t n);
 
 /* Append the contents of `src` to `dest`. Equivalent to
- * dstr_cat_n(dest, dstr_data(src), dstr_len(src)). Returns 0 on 
+ * dstr_cat_n(dest, dstr_data(src), dstr_len(src)). Returns 0 on
  * success and -1 on failure.
  */
 int dstr_cat(dstr **dest, const dstr *src);
@@ -214,32 +214,27 @@ dstr *dstr_dup(const dstr *s)
 
 int dstr_set(dstr **str, const void *data, size_t n)
 {
-	if (!str || !(*str) || (!data && n > 0)) {
+	if (!str || !(*str) || (!data && n > 0))
 		return -1;
-	}
 
 	if (n == 0)
 		return 0;
 
-	if (n > SIZE_MAX - sizeof(dstr) - 1) {
+	if (n > SIZE_MAX - sizeof(dstr) - 1)
 		return -1;
-	}
 
 	if ((*str)->cap < n) {
-		size_t curr_alloc_sz = sizeof(dstr) + (*str)->cap + 1;
-		size_t new_alloc_sz = sizeof(dstr) + n + 1;
+		size_t cap = ((*str)->cap <= (SIZE_MAX - sizeof(dstr) - 1) / 2 && (*str)->cap * 2 > n)
+						 ? (*str)->cap * 2
+						 : n;
 
-		if (curr_alloc_sz <= (SIZE_MAX / 2) && curr_alloc_sz * 2 > new_alloc_sz)
-			new_alloc_sz = curr_alloc_sz * 2;
+		dstr *new_str = DSTR_ALLOC(*str, sizeof(dstr) + cap + 1);
 
-		dstr *new_str = DSTR_ALLOC(*str, new_alloc_sz);
-
-		if (!new_str) {
+		if (!new_str)
 			return -1;
-		}
 
 		*str = new_str;
-		(*str)->cap = new_alloc_sz - sizeof(dstr) - 1;
+		(*str)->cap = cap;
 	}
 
 	memcpy((*str)->data, data, n);
@@ -274,35 +269,29 @@ int dstr_cat_n(dstr **dest, const void *src, size_t n)
 	if (n == 0)
 		return 0;
 
-	// Reserve space for the header and NUL terminator before
-	// validating variable-sized component to prevent underflow
-	if ((*dest)->len > SIZE_MAX - sizeof(dstr) - 1) {
+	// Ensure there is remaining space for more data
+	if ((*dest)->len >= SIZE_MAX - sizeof(dstr) - 1)
 		return -1;
-	}
 
-	// len is bounded, so this subtraction cannot underflow
-	// Now validate whether n fits in the remaining space.
-	if (n > SIZE_MAX - sizeof(dstr) - (*dest)->len - 1) {
+	// Now validate whether n fits in the remaining space
+	if (n > SIZE_MAX - sizeof(dstr) - (*dest)->len - 1)
 		return -1;
-	}
 
-	size_t reqd_cap = (*dest)->len + n;
+	size_t cap_needed = (*dest)->len + n;
 
-	if ((*dest)->cap < reqd_cap) {
-		size_t curr_alloc_sz = sizeof(dstr) + (*dest)->cap + 1;
-		size_t new_alloc_sz = sizeof(dstr) + reqd_cap + 1;
+	if ((*dest)->cap < cap_needed) {
+		size_t cap =
+			((*dest)->cap <= (SIZE_MAX - sizeof(dstr) - 1) / 2 && (*dest)->cap * 2 > cap_needed)
+				? (*dest)->cap * 2
+				: cap_needed;
 
-		if (curr_alloc_sz <= (SIZE_MAX / 2) && curr_alloc_sz * 2 > new_alloc_sz)
-			new_alloc_sz = curr_alloc_sz * 2;
+		dstr *new_str = DSTR_ALLOC(*dest, sizeof(dstr) + cap + 1);
 
-		dstr *new_str = DSTR_ALLOC(*dest, new_alloc_sz);
-
-		if (!new_str) {
+		if (!new_str)
 			return -1;
-		}
 
 		*dest = new_str;
-		(*dest)->cap = new_alloc_sz - sizeof(dstr) - 1;
+		(*dest)->cap = cap;
 	}
 
 	memcpy((*dest)->data + (*dest)->len, src, n);

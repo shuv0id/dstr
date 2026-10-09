@@ -347,7 +347,7 @@ void test_dstr_cat_n_src_with_null_byte(void)
 
 	ASSERT_EQUAL(int, 0, ok);
 	ASSERT_EQUAL(size_t, 11, dstr_len(dest));
-	ASSERT_TRUE(dstr_cap(dest) > dstr_len(dest));
+	ASSERT_TRUE(dstr_cap(dest) >= dstr_len(dest));
 	ASSERT_TRUE(memcmp(dstr_data(dest), "hello\0world", dstr_len(dest)) == 0);
 
 	dstr_free(dest);
