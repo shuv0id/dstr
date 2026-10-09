@@ -218,7 +218,7 @@ void test_dstr_set(void)
 	dstr *greet_world = dstr_new("hello, world!");
 	char *greet_aliens = "hello, aliens!";
 
-	int done = dstr_set(&greet_world, greet_aliens, strlen(greet_aliens));
+	int done = dstr_set_n(&greet_world, greet_aliens, strlen(greet_aliens));
 
 	ASSERT_EQUAL(int, 0, done);
 	ASSERT_EQUAL(size_t, strlen(greet_aliens), dstr_len(greet_world));

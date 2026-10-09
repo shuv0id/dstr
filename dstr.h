@@ -61,7 +61,7 @@ dstr *dstr_dup(const dstr *s);
  * Returns -1 on failure and 0 on success.
  * If n is 0 then its a no-op and 0 is returned.
  */
-int dstr_set(dstr **str, const void *data, size_t n);
+int dstr_set_n(dstr **str, const void *data, size_t n);
 
 /* Resets the length of the provided dstr to zero and places a '\0'
  * at the beginning of the data buffer. Passing NULL str is a no-op.
@@ -212,7 +212,7 @@ dstr *dstr_dup(const dstr *s)
 	return dstr_new_n(s->data, s->len);
 }
 
-int dstr_set(dstr **str, const void *data, size_t n)
+int dstr_set_n(dstr **str, const void *data, size_t n)
 {
 	if (!str || !(*str) || (!data && n > 0))
 		return -1;
