@@ -151,24 +151,83 @@ const char *dstr_data(const dstr *str)
 	return str->data;
 }
 
+/* Helper function which returns total allocation size with provided
+ * capacity. Returns 0 if overflows. */
+static size_t dstr_alloc_sz(size_t cap)
+{
+	return cap > (SIZE_MAX - sizeof(dstr) - 1) ?
+		0 : sizeof(dstr) + cap + 1;
+}
+
+/* Helper function which returns a pointer to a newly allocated dstr with
+ * provided capacity, length of zero and '\0' character at the beginning
+ * of the data buffer. Returns NULL on failure. */
+static dstr *dstr_alloc(size_t cap)
+{
+	size_t sz = dstr_alloc_sz(cap);
+	if (sz == 0) return NULL;
+
+	dstr *new = DSTR_ALLOC(NULL, sz);
+	if (!new) return NULL;
+
+	new->cap = cap;
+	new->len = 0;
+	new->data[0] = '\0';
+
+	return new;
+}
+
+/* Helper function to reallocate `*str` to grow its buffer upto a minimum
+ * capacity of provided `need` if `need` is greater than current capacity
+ * of `*str`. Returns 0 on success and -1 on failure. It assumes `str` and
+ * `*str` is not NULL. */
+int dstr_reserve(dstr **str, size_t need)
+{
+	if (need <= (*str)->cap) return 0;
+
+	size_t new_cap = (*str)->cap > SIZE_MAX / 2 ?
+						need : (*str)->cap * 2;
+	if (new_cap < need) new_cap = need;
+
+	size_t sz = dstr_alloc_sz(new_cap);
+	if (sz == 0) return -1;
+
+	dstr *tmp = DSTR_ALLOC(*str, sz);
+	if (!tmp) return -1;
+
+	*str = tmp;
+	(*str)->cap = new_cap;
+	return 0;
+}
+
+/* Helper function to reallocate `*str` to grow its buffer upto a minimum
+ * capacity of current length of `*str plus additional `extra` bytes if
+ * current capacity cannot hold additional `extra` bytes. Returns 0 on
+ * success and -1 on failure. It assumes  `str` and  `*str` is not NULL. */
+int dstr_reserve_extra(dstr **str, size_t extra)
+{
+	if (extra == 0) return 0;
+
+	// Ensure there is remaining space for more data
+	if ((*str)->len >= SIZE_MAX - sizeof(dstr) - 1)
+		return -1;
+
+	// Now validate whether n fits in the remaining space
+	if (extra > SIZE_MAX - sizeof(dstr) - (*str)->len - 1)
+		return -1;
+
+	return dstr_reserve(str, (*str)->len + extra);
+}
+
 dstr *dstr_new_n(const void *data, size_t n)
 {
-	if (!data) {
-		return NULL;
-	}
+	if (!data) return NULL;
 
-	if (n > SIZE_MAX - sizeof(dstr) - 1) {
-		return NULL;
-	}
+	dstr *str = dstr_alloc(n);
 
-	dstr *str = DSTR_ALLOC(NULL, sizeof(dstr) + n + 1);
-
-	if (!str) {
-		return NULL;
-	}
+	if (!str) return NULL;
 
 	str->len = n;
-	str->cap = n;
 	memcpy(str->data, data, n);
 	str->data[str->len] = '\0';
 
@@ -177,21 +236,7 @@ dstr *dstr_new_n(const void *data, size_t n)
 
 dstr *dstr_empty(size_t cap)
 {
-	if (cap > SIZE_MAX - sizeof(dstr) - 1) {
-		return NULL;
-	}
-
-	dstr *str = DSTR_ALLOC(NULL, sizeof(dstr) + cap + 1);
-
-	if (!str) {
-		return NULL;
-	}
-
-	str->len = 0;
-	str->cap = cap;
-	str->data[str->len] = '\0';
-
-	return str;
+	return dstr_alloc(cap);
 }
 
 dstr *dstr_new(const char *c_str)
@@ -217,25 +262,7 @@ int dstr_set_n(dstr **str, const void *data, size_t n)
 	if (!str || !(*str) || (!data && n > 0))
 		return -1;
 
-	if (n == 0)
-		return 0;
-
-	if (n > SIZE_MAX - sizeof(dstr) - 1)
-		return -1;
-
-	if ((*str)->cap < n) {
-		size_t cap = ((*str)->cap <= (SIZE_MAX - sizeof(dstr) - 1) / 2 && (*str)->cap * 2 > n)
-						 ? (*str)->cap * 2
-						 : n;
-
-		dstr *new_str = DSTR_ALLOC(*str, sizeof(dstr) + cap + 1);
-
-		if (!new_str)
-			return -1;
-
-		*str = new_str;
-		(*str)->cap = cap;
-	}
+	if (dstr_reserve(str, n) == -1) return -1;
 
 	memcpy((*str)->data, data, n);
 	(*str)->len = n;
@@ -262,37 +289,11 @@ void dstr_free(dstr *str)
 
 int dstr_cat_n(dstr **dest, const void *src, size_t n)
 {
-	if (!dest || !(*dest) || (!src && n > 0)) {
-		return -1;
-	}
-
-	if (n == 0)
-		return 0;
-
-	// Ensure there is remaining space for more data
-	if ((*dest)->len >= SIZE_MAX - sizeof(dstr) - 1)
+	if (!dest || !(*dest) || (!src && n > 0))
 		return -1;
 
-	// Now validate whether n fits in the remaining space
-	if (n > SIZE_MAX - sizeof(dstr) - (*dest)->len - 1)
+	if (dstr_reserve_extra(dest, n) == -1)
 		return -1;
-
-	size_t cap_needed = (*dest)->len + n;
-
-	if ((*dest)->cap < cap_needed) {
-		size_t cap =
-			((*dest)->cap <= (SIZE_MAX - sizeof(dstr) - 1) / 2 && (*dest)->cap * 2 > cap_needed)
-				? (*dest)->cap * 2
-				: cap_needed;
-
-		dstr *new_str = DSTR_ALLOC(*dest, sizeof(dstr) + cap + 1);
-
-		if (!new_str)
-			return -1;
-
-		*dest = new_str;
-		(*dest)->cap = cap;
-	}
 
 	memcpy((*dest)->data + (*dest)->len, src, n);
 	(*dest)->len += n;
